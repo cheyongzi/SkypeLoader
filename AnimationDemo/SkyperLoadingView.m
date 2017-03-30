@@ -12,7 +12,6 @@
 
 //用于存储动画的圆圈
 @property (strong, nonatomic) NSMutableArray    *dotLayerArray;
-@property (strong, nonatomic) NSMutableArray    *dotViewArray;
 //用于延时启动动画
 @property (strong, nonatomic) NSTimer           *startDelayTimer;
 @property (strong, nonatomic) NSTimer           *stopDelayTimer;
@@ -43,23 +42,21 @@
     _autoAnimation = NO;
     _dotCount = 5;
     _dotWidth = 4;
-    _animationDuration = 1.8;
-    _animationStartOffset = 0.1;
-    _dotScale = 0.4;
+    _animationDuration = 1.4;
+    _animationStartOffset = 0.08;
+    _dotScale = 0.5;
     _dotBackColor = [UIColor colorWithRed:240.f/255 green:96.f/255 blue:0 alpha:1.0];
     
     _dotLayerArray = [NSMutableArray array];
-    _dotViewArray = [NSMutableArray array];
 }
 
 #pragma mark - view method
-- (void)willMoveToSuperview:(UIView *)newSuperview {
-    [super willMoveToSuperview:newSuperview];
-    if (newSuperview != nil) {
-        [self initDotInterface];
-        if (self.autoAnimation) {
-            [self startAnimation:0];
-        }
+- (void)didMoveToSuperview {
+    [super didMoveToSuperview];
+    
+    [self initDotInterface];
+    if (self.autoAnimation) {
+        [self startAnimation:0];
     }
 }
 
@@ -89,90 +86,53 @@
 #pragma mark - Init Dot Interface
 - (void)initDotInterface {
     for (int index = 0; index < _dotCount; index++) {
-        UIView *dotView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, _dotWidth, _dotWidth)];
-        [_dotViewArray addObject:dotView];
-        
         CAShapeLayer *layer = [CAShapeLayer layer];
-        layer.path = [UIBezierPath bezierPathWithRoundedRect:dotView.bounds cornerRadius:_dotWidth/2].CGPath;
-        layer.fillColor = _dotBackColor.CGColor;
+        layer.frame = CGRectMake(0, 0, _dotWidth, _dotWidth);
+        layer.position = CGPointMake(self.bounds.size.width/2, _dotWidth/2);
+        layer.backgroundColor = _dotBackColor.CGColor;
+        layer.cornerRadius = _dotWidth/2;
         [_dotLayerArray addObject:layer];
-        [dotView.layer addSublayer:layer];
         
-        CGFloat yAnchor = (self.bounds.size.height/2 - _dotWidth/2)/_dotWidth;
-        
-        dotView.layer.anchorPoint = CGPointMake(0.5, yAnchor);
-        dotView.center = CGPointMake(self.bounds.size.width/2, self.bounds.size.height/2);
-        
-        [self addSubview:dotView];
+        [self.layer addSublayer:layer];
     }
 }
 
 #pragma mark - Start Stop Action
 - (void)startAction {
-    if (_dotViewArray.count == 0 || _dotLayerArray.count == 0) {
-        [self initDotInterface];
-    }
     for (int index = 0; index < _dotCount; index++) {
-        UIView *dotView = _dotViewArray[index];
-        [dotView.layer addAnimation:[self createDotViewAnimation:index] forKey:@"DotViewRotateAnimation"];
-        
         CAShapeLayer *layer = _dotLayerArray[index];
-        [layer addAnimation:[self createDotLayerAnimation:index] forKey:@"DotLayerScaleAnimation"];
+        [layer addAnimation:[self createAnimation:index] forKey:@"DotLayerAnimation"];
     }
 }
 
-- (CAAnimationGroup*)createDotViewAnimation:(int)index {
-    CABasicAnimation *animation1 = [CABasicAnimation animationWithKeyPath:@"transform.rotation"];
-    animation1.duration = _animationDuration/2;
-    animation1.toValue = @(M_PI);
-    animation1.removedOnCompletion = NO;
-    animation1.fillMode = kCAFillModeForwards;
+- (CAAnimationGroup*)createAnimation:(int)index {
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    [path addArcWithCenter:CGPointMake(self.bounds.size.width/2, self.bounds.size.width/2) radius:self.bounds.size.width/2-_dotWidth/2 startAngle:-M_PI_2 endAngle:M_PI_2*3 clockwise:YES];
     
-    CABasicAnimation *animation2 = [CABasicAnimation animationWithKeyPath:@"transform.rotation"];
+    CAKeyframeAnimation *animation1 = [CAKeyframeAnimation animation];
+    animation1.keyPath = @"position";
+    animation1.path = path.CGPath;
+    animation1.rotationMode = kCAAnimationRotateAuto;
+    
+    CABasicAnimation *animation2 = [CABasicAnimation animation];
+    animation2.keyPath = @"transform.scale";
+    animation2.toValue = @(_dotScale);
     animation2.duration = _animationDuration/2;
-    animation2.fromValue = @(-M_PI);
-    animation2.toValue = @(0);
-    animation2.removedOnCompletion = NO;
-    animation2.fillMode = kCAFillModeForwards;
-    animation2.beginTime = _animationDuration/2;
+    animation2.autoreverses = YES;
     
     CAAnimationGroup *group = [CAAnimationGroup animation];
     group.duration = _animationDuration;
     group.removedOnCompletion = YES;
     group.fillMode = kCAFillModeForwards;
-    group.animations = @[animation1, animation2];
+    group.animations = @[animation1,animation2];
     group.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-    group.repeatCount = CGFLOAT_MAX;
-    group.beginTime = (index+1)*_animationStartOffset;
-    
-    return group;
-}
-
-- (CAAnimationGroup*)createDotLayerAnimation:(int)index {
-    CABasicAnimation *animation1 = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-    animation1.duration = _animationDuration/2;
-    animation1.toValue = @(0.4);
-    animation1.removedOnCompletion = NO;
-    animation1.autoreverses = YES;
-    animation1.fillMode = kCAFillModeForwards;
-    
-    CAAnimationGroup *group = [CAAnimationGroup animation];
-    group.duration = _animationDuration;
-    group.removedOnCompletion = YES;
-    group.fillMode = kCAFillModeForwards;
-    group.animations = @[animation1];
-    group.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-    group.repeatCount = CGFLOAT_MAX;
+    group.repeatCount = INFINITY;
     group.beginTime = (index+1)*_animationStartOffset;
     
     return group;
 }
 
 - (void)stopAction {
-    for (UIView *dotView in _dotViewArray) {
-        [dotView.layer removeAllAnimations];
-    }
-    
     for (CAShapeLayer *layer in _dotLayerArray) {
         [layer removeAllAnimations];
     }
